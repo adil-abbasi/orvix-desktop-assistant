@@ -7,6 +7,14 @@ from PyQt6.QtWidgets import (
 )
 
 
+def safe_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        return str(value.get("name", value))
+    return str(value)
+
+
 class FileViewerWindow(QWidget):
     def __init__(self, title: str, items: list):
         super().__init__()
@@ -28,12 +36,12 @@ class FileViewerWindow(QWidget):
         self.table.setRowCount(len(self.items))
 
         for row, item in enumerate(self.items):
-            self.table.setItem(row, 0, QTableWidgetItem(item.get("name", "")))
-            self.table.setItem(row, 1, QTableWidgetItem(item.get("type", "")))
-            self.table.setItem(row, 2, QTableWidgetItem(item.get("size", "")))
-            self.table.setItem(row, 3, QTableWidgetItem(item.get("modified", "")))
-            self.table.setItem(row, 4, QTableWidgetItem(item.get("score", "")))
-            self.table.setItem(row, 5, QTableWidgetItem(item.get("path", "")))
+            self.table.setItem(row, 0, QTableWidgetItem(safe_text(item.get("name", ""))))
+            self.table.setItem(row, 1, QTableWidgetItem(safe_text(item.get("type", ""))))
+            self.table.setItem(row, 2, QTableWidgetItem(safe_text(item.get("size", ""))))
+            self.table.setItem(row, 3, QTableWidgetItem(safe_text(item.get("modified", ""))))
+            self.table.setItem(row, 4, QTableWidgetItem(safe_text(item.get("score", ""))))
+            self.table.setItem(row, 5, QTableWidgetItem(safe_text(item.get("path", ""))))
 
         self.table.resizeColumnsToContents()
         self.table.setSortingEnabled(True)
@@ -50,7 +58,13 @@ class FileViewerWindow(QWidget):
         if not path_item:
             return
 
-        path = Path(path_item.text())
+        path_text = path_item.text().strip()
+
+        if not path_text:
+            QMessageBox.warning(self, "No Path", "This item has no openable path.")
+            return
+
+        path = Path(path_text)
 
         if not path.exists():
             QMessageBox.warning(self, "Not Found", f"Path not found:\n{path}")

@@ -1,12 +1,15 @@
+from app.app_finder import find_app
+from app.software_indexer import find_software
+
 from pathlib import Path
 import subprocess
 import shutil
 from datetime import datetime
-
+from app.app_finder import find_app
 from docx import Document
 from openpyxl import Workbook
 from pptx import Presentation
-
+from app.software_indexer import find_software
 from app.smart_search import find_similar_items
 from app.session_memory import set_last_created_path, set_last_opened_path, resolve_reference
 from app.path_resolver import resolve_location, is_blocked_path
@@ -262,7 +265,7 @@ def open_file(file_name: str, location: str):
 def open_app(app_name: str):
     app_name = app_name.lower().strip()
 
-    apps = {
+    built_in = {
         "vscode": "code",
         "vs code": "code",
         "visual studio code": "code",
@@ -271,23 +274,77 @@ def open_app(app_name: str):
         "notepad": "notepad",
         "calculator": "calc",
         "paint": "mspaint",
-        "word": "winword",
-        "excel": "excel",
-        "powerpoint": "powerpnt",
         "cmd": "cmd",
         "terminal": "wt",
-        "file explorer": "explorer"
+        "file explorer": "explorer",
+        "word": "winword",
+        "excel": "excel",
+        "powerpoint": "powerpnt"
     }
 
-    command = apps.get(app_name, app_name)
+    # 1. Built-in known commands
+    if app_name in built_in:
+        try:
+            subprocess.Popen(built_in[app_name], shell=True)
+            return True, f"Opened app: {app_name}"
+        except Exception:
+            pass
 
-    try:
-        subprocess.Popen(command, shell=True)
-        return True, f"Opened app: {app_name}"
-    except Exception as e:
-        return False, f"Failed to open {app_name}: {e}"
+    # 2. Search Start Menu / Desktop shortcuts
+    result = find_app(app_name)
 
+    if result.get("found"):
+        try:
+            subprocess.Popen(f'explorer "{result["path"]}"', shell=True)
+            return True, f"Opened app shortcut: {result.get('name', app_name)}"
+        except Exception as e:
+            return False, f"Failed to open app shortcut: {e}"
 
+    # 3. Search Program Files / Program Files (x86)
+    software_path = find_software(app_name)
+
+    if software_path:
+        try:
+            subprocess.Popen(str(software_path), shell=True)
+            return True, f"Opened software: {software_path.name}"
+        except Exception as e:
+            return False, f"Failed to open software: {e}"
+
+    # 4. Show suggestions from shortcut index
+    suggestions = result.get("suggestions", [])
+
+    suggestions = result.get("suggestions", [])
+
+    if suggestions:
+        items = []
+
+        for suggestion in suggestions:
+            if isinstance(suggestion, dict):
+                items.append({
+                    "name": suggestion.get("name", ""),
+                    "type": "Application",
+                    "size": "",
+                    "modified": "",
+                    "score": "",
+                    "path": suggestion.get("path", "")
+                })
+            else:
+                items.append({
+                    "name": str(suggestion),
+                    "type": "Application",
+                    "size": "",
+                    "modified": "",
+                    "score": "",
+                    "path": ""
+                })
+
+        return False, {
+            "text": f"App '{app_name}' not found exactly. Similar apps found. Double-click a row to open.",
+            "viewer": {
+                "title": "Similar Apps",
+                "items": items
+            }
+        }
 def open_app_in_location(app_name: str, location: str):
     location = resolve_reference(location)
     folder_path = resolve_location(location)
