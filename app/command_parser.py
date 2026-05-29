@@ -537,10 +537,28 @@ def parse_single_command(command: str):
         if re.search(r"\s+(from|in|inside|at|on)\s+", lower):
             return parse_open_file(command)
 
+        target = command[len("open "):].strip()
+
+        known_apps = [
+            "vscode", "vs code", "visual studio code",
+            "chrome", "google chrome", "notepad",
+            "calculator", "paint", "cmd", "terminal",
+            "file explorer", "word", "excel", "powerpoint",
+            "telegram", "localsend", "local send",
+            "pycharm", "android studio", "mysql workbench"
+        ]
+
+        if target.lower() in known_apps:
+            return {
+                "success": True,
+                "action": "open_app",
+                "app": target
+            }
+
         return {
             "success": True,
-            "action": "open_app",
-            "app": command[len("open "):].strip()
+            "action": "smart_open_file",
+            "query": target
         }
 
     return {"success": False, "message": f"Command not recognized yet: {command}"}

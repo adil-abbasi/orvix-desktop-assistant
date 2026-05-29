@@ -1,6 +1,7 @@
+from app.file_memory import remember_file, get_remembered_file
 from app.app_finder import find_app
 from app.software_indexer import find_software
-
+from app.file_indexer import find_file
 from pathlib import Path
 import subprocess
 import shutil
@@ -53,6 +54,53 @@ def build_file_item(path: Path):
         "path": str(path)
     }
 
+def smart_open_file(query: str):
+    remembered = get_remembered_file(query)
+
+    if remembered:
+      path = Path(remembered)
+
+    if path.exists():
+        try:
+            subprocess.Popen(f'explorer "{path}"', shell=True)
+            return True, f"Opened remembered file: {path}"
+        except Exception:
+            pass
+    result = find_file(query)
+
+    if result.get("found"):
+        path = result["file"]["path"]
+        remember_file(query, path)
+
+        try:
+            subprocess.Popen(f'explorer "{path}"', shell=True)
+            set_last_opened_path(path)
+            return True, f"Opened file: {path}"
+        except Exception as e:
+            return False, f"Failed to open file: {e}"
+
+    suggestions = result.get("suggestions", [])
+
+    if suggestions:
+        return False, {
+            "text": f"No exact match for '{query}'. Similar files found.",
+            "viewer": {
+                "title": f"Similar files for '{query}'",
+                "items": [
+                    {
+                        "name": item.get("name", ""),
+                        "type": "File",
+                        "size": "",
+                        "modified": "",
+                        "score": "",
+                        "path": item.get("path", "")
+                    }
+                    for item in suggestions
+                ]
+            }
+        }
+
+    return False, f"No files found for: {query}"
 
 def should_ignore(path: Path):
     return any(part in IGNORED_DIRS for part in path.parts)
@@ -750,6 +798,9 @@ def execute_single_action(parsed_command):
 
     if action == "search_file":
         return search_file(parsed_command.get("query"), parsed_command.get("location"))
+
+    if action == "smart_open_file":
+        return smart_open_file(parsed_command.get("query"))
 
     return False, "No executor found for this action."
 

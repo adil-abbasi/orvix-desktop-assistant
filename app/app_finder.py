@@ -9,14 +9,13 @@ def get_search_locations():
 
     start_menu_user = Path.home() / "AppData/Roaming/Microsoft/Windows/Start Menu/Programs"
     start_menu_all = Path("C:/ProgramData/Microsoft/Windows/Start Menu/Programs")
-    desktop_user = Path.home() / "Desktop"
-    desktop_onedrive = Path.home() / "OneDrive" / "Desktop"
+
+    desktop = Path.home() / "Desktop"
 
     locations.extend([
         start_menu_user,
         start_menu_all,
-        desktop_user,
-        desktop_onedrive
+        desktop
     ])
 
     return locations
@@ -24,9 +23,11 @@ def get_search_locations():
 
 def build_app_index():
     global APP_INDEX
+
     APP_INDEX = {}
 
     for location in get_search_locations():
+
         if not location.exists():
             continue
 
@@ -53,26 +54,23 @@ def find_app(app_name):
         return {
             "found": True,
             "path": str(APP_INDEX[query]),
-            "name": query,
-            "suggestions": []
+            "name": query
         }
 
     matches = difflib.get_close_matches(
         query,
         APP_INDEX.keys(),
         n=10,
-        cutoff=0.45
+        cutoff=0.55
     )
 
-    suggestions = []
-
-    for match in matches:
-        suggestions.append({
-            "name": match,
-            "path": str(APP_INDEX[match])
-        })
+    if matches:
+        return {
+            "found": False,
+            "suggestions": matches
+        }
 
     return {
         "found": False,
-        "suggestions": suggestions
+        "suggestions": []
     }
