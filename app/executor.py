@@ -55,17 +55,21 @@ def build_file_item(path: Path):
     }
 
 def smart_open_file(query: str):
+    query = query.strip()
+
     remembered = get_remembered_file(query)
 
     if remembered:
-      path = Path(remembered)
+        remembered_path = Path(remembered)
 
-    if path.exists():
-        try:
-            subprocess.Popen(f'explorer "{path}"', shell=True)
-            return True, f"Opened remembered file: {path}"
-        except Exception:
-            pass
+        if remembered_path.exists():
+            try:
+                subprocess.Popen(f'explorer "{remembered_path}"', shell=True)
+                set_last_opened_path(remembered_path)
+                return True, f"Opened remembered file: {remembered_path}"
+            except Exception:
+                pass
+
     result = find_file(query)
 
     if result.get("found"):
