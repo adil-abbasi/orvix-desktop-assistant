@@ -54,6 +54,11 @@ def build_file_item(path: Path):
 def should_ignore(path: Path):
     return any(part in IGNORED_DIRS for part in path.parts)
 
+def refresh_desktop():
+    try:
+        subprocess.Popen("ie4uinit.exe -show", shell=True)
+    except Exception:
+        pass
 
 def get_unique_path(path: Path):
     if not path.exists():
@@ -94,7 +99,7 @@ def create_folder(folder_name: str, location: str):
         folder_path.mkdir(parents=True, exist_ok=False)
 
         set_last_created_path(folder_path)
-
+        refresh_desktop()
         return True, {
             "text": f"Folder created successfully: {folder_path}",
             "created_path": str(folder_path)
@@ -144,7 +149,7 @@ def create_file(file_name: str, location: str):
             file_path.write_text("", encoding="utf-8")
 
         set_last_created_path(file_path)
-
+        refresh_desktop()
         return True, {
             "text": f"File created successfully: {file_path}",
             "created_path": str(file_path)
@@ -386,6 +391,7 @@ def copy_or_move_item(operation: str, item_type: str, name: str, source: str, de
                 return False, f"Unsupported item type: {item_type}"
 
             set_last_created_path(destination_path)
+            refresh_desktop()
             return True, f"Copied {item_type}: {source_path} → {destination_path}"
 
         if operation == "move":
@@ -432,6 +438,7 @@ def rename_item(item_type: str, old_name: str, new_name: str, location: str):
     try:
         old_path.rename(new_path)
         set_last_created_path(new_path)
+        refresh_desktop()
         return True, f"Renamed {item_type}: {old_path} → {new_path}"
     except Exception as e:
         return False, f"Failed to rename: {e}"
@@ -461,7 +468,7 @@ def delete_item(item_type: str, name: str, location: str):
             target_path.unlink()
         else:
             shutil.rmtree(target_path)
-
+        refresh_desktop()
         return True, f"Deleted {item_type}: {target_path}"
 
     except Exception as e:
@@ -608,7 +615,7 @@ def create_project_structure(project_name: str, location: str, folders: list, fi
                 messages.append(f"File created with starter code: {file_path}")
 
         set_last_created_path(project_path)
-
+        refresh_desktop()
         return True, {
             "text": "\n".join(messages),
             "created_path": str(project_path)

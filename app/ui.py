@@ -4,8 +4,8 @@ from app.executor import execute_action
 from app.file_viewer import FileViewerWindow
 from app.intent_planner import plan_intent
 from PyQt6.QtWidgets import (
-   QWidget, QVBoxLayout, QHBoxLayout, QTextEdit,
-QLineEdit, QPushButton, QLabel, QMessageBox, QMenu
+  QWidget, QVBoxLayout, QHBoxLayout, QTextEdit,
+QLineEdit, QPushButton, QLabel, QMessageBox, QMenu, QApplication
 )
 from PyQt6.QtCore import Qt, QPropertyAnimation, QRect, QEasingCurve
 from PyQt6.QtGui import QMouseEvent
@@ -183,7 +183,7 @@ class OrvixWindow(QWidget):
         close_btn = QPushButton("×")
         close_btn.setObjectName("ghostButton")
         close_btn.setFixedWidth(42)
-        close_btn.clicked.connect(self.close)
+        close_btn.clicked.connect(QApplication.quit)
 
         header.addWidget(title)
         header.addWidget(self.status_dot)
@@ -250,7 +250,7 @@ class OrvixWindow(QWidget):
             self.set_status("ready")
 
         elif action == exit_action:
-            self.close()
+             QApplication.quit()
             
     def orb_mouse_press(self, event):
       if event.button() == Qt.MouseButton.RightButton:
@@ -466,6 +466,10 @@ class OrvixWindow(QWidget):
 
         return False
 
+    def closeEvent(self, event):
+        QApplication.quit()
+        event.accept()    
+    
     def show_delete_confirmation(self, parsed_command):
         delete_steps = []
 
