@@ -1,9 +1,10 @@
 import re
-
+from app.project_planner import plan_project_request
 from app.action_planner import plan_from_project_goal
 
 
 def clean_text(text: str):
+    
     return text.lower().strip()
 
 
@@ -65,10 +66,16 @@ def plan_intent(user_command: str):
     """
 
     text = clean_text(user_command)
-    location = detect_location(text)
-    open_in_vscode = wants_vscode(text)
+    project_plan = plan_project_request(user_command)
 
-    # Website / frontend / portfolio
+    if project_plan is not None:
+        if "planned_plan" in project_plan:
+            return project_plan["planned_plan"]
+
+        if "planned_command" in project_plan:
+            return project_plan["planned_command"]
+
+   # Website / frontend / portfolio
     if (
         "website" in text
         or "web app" in text

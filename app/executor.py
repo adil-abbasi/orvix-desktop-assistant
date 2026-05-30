@@ -1,3 +1,4 @@
+from app.session_memory import get_last_project, set_last_project
 from app.file_memory import remember_file, get_remembered_file
 from app.app_finder import find_app
 from app.software_indexer import find_software
@@ -15,6 +16,8 @@ from app.smart_search import find_similar_items
 from app.session_memory import set_last_created_path, set_last_opened_path, resolve_reference
 from app.path_resolver import resolve_location, is_blocked_path
 from app.session_memory import (
+    get_last_project,
+    set_last_project,
     set_last_created_path,
     set_last_opened_path,
     set_last_active_path,
@@ -25,6 +28,22 @@ IGNORED_DIRS = {
     ".git", "venv", "__pycache__", "node_modules", ".idea", ".vscode",
     "dist", "build", ".env"
 }
+
+LAST_PROJECT_PATH = None
+LAST_PROJECT_TEMPLATE = None
+
+
+def set_last_project(path, template):
+    global LAST_PROJECT_PATH, LAST_PROJECT_TEMPLATE
+
+    LAST_PROJECT_PATH = str(path)
+    LAST_PROJECT_TEMPLATE = template
+
+
+def get_last_project():
+    return LAST_PROJECT_PATH, LAST_PROJECT_TEMPLATE
+
+
 
 
 def format_size(size_bytes: int):
@@ -423,12 +442,55 @@ def open_app_in_location(app_name: str, location: str):
 
 
 def run_project(template: str, project_name: str, location: str):
-    location = resolve_reference(location)
-    project_name = resolve_reference(project_name)
+    project_name = "" if project_name is None else str(project_name).strip()
 
-    base_path = resolve_location(location)
-    project_path = base_path / project_name
+    if project_name.lower() in ["", "it", "this", "that"]:
+        last_path, last_template = get_last_project()
 
+        if not last_path:
+            return False, "No recent project found to run."
+
+        project_path = Path(last_path)
+        template = last_template or template
+
+    else:
+        location = resolve_reference(location)
+        project_name = resolve_reference(project_name)
+
+        base_path = resolve_location(location)
+        project_path = base_path / project_name
+
+    if is_blocked_path(project_path):
+        return False, f"Blocked for safety: {project_path}"
+
+    if not project_path.exists():
+        return False, f"Project folder not found: {project_path}"
+
+    commands = {
+        "react app": "npm install && npm run dev",
+        "node express app": "npm install && npm run dev",
+        "django app": "pip install -r requirements.txt && python manage.py runserver",
+        "flask app": "pip install -r requirements.txt && python run.py",
+        "python app": "python app/main.py",
+        "ml project": "pip install -r requirements.txt && python src/main.py",
+        "data science project": "pip install -r requirements.txt",
+        "spring boot project": "mvn spring-boot:run",
+    }
+
+    run_command = commands.get(template)
+
+    if not run_command:
+        return False, f"No run command found for template: {template}"
+
+    try:
+        subprocess.Popen(
+            f'start cmd /k "cd /d {project_path} && {run_command}"',
+            shell=True
+        )
+        set_last_opened_path(project_path)
+        return True, f"Running {template}: {project_path}"
+    except Exception as e:
+        return False, f"Failed to run project: {e}"
     if is_blocked_path(project_path):
         return False, f"Blocked for safety: {project_path}"
 
@@ -664,9 +726,8 @@ def search_file(query: str, location: str):
 
     except Exception as e:
         return False, f"Search failed: {e}"
-
-
-def create_project_structure(project_name: str, location: str, folders: list, files):
+    
+def create_project_structure(project_name: str, location: str, folders: list, files, template="react app"):
     location = resolve_reference(location)
     project_name = resolve_reference(project_name)
 
@@ -723,8 +784,10 @@ def create_project_structure(project_name: str, location: str, folders: list, fi
                 file_path.write_text(content, encoding="utf-8")
                 messages.append(f"File created with starter code: {file_path}")
 
-        set_last_created_path(project_path)
-        refresh_desktop()
+                set_last_created_path(project_path)
+                set_last_project(project_path, template)
+                refresh_desktop()
+                
         return True, {
             "text": "\n".join(messages),
             "created_path": str(project_path)
@@ -745,12 +808,13 @@ def execute_single_action(parsed_command):
         )
 
     if action == "create_project":
-        return create_project_structure(
-            parsed_command.get("name"),
-            parsed_command.get("location"),
-            parsed_command.get("folders", []),
-            parsed_command.get("files", [])
-        )
+     return create_project_structure(
+        parsed_command.get("name"),
+        parsed_command.get("location"),
+        parsed_command.get("folders", []),
+        parsed_command.get("files", []),
+        parsed_command.get("template", "react app")
+    )
 
     if action == "open_app_in_location":
         return open_app_in_location(
