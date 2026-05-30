@@ -32,25 +32,23 @@ def build_react_router_files(page_files: list):
         label = component.replace("Dashboard", " Dashboard")
         nav_links.append(f'      <Link to="{route_path}">{label}</Link>')
 
-    app_jsx = f'''import {{ BrowserRouter, Routes, Route }} from "react-router-dom";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-{chr(10).join(imports)}
-import "./style.css";
+        app_jsx = f'''import {{ BrowserRouter, Routes, Route }} from "react-router-dom";
+    import Navbar from "./components/Navbar";
+    {chr(10).join(imports)}
+    import "./style.css";
 
-function App() {{
-  return (
-    <BrowserRouter>
-      <Navbar />
-      <main className="container">
-        <Routes>
-{chr(10).join(routes)}
-        </Routes>
-      </main>
-      <Footer />
-    </BrowserRouter>
-  );
-}}
+    function App() {{
+    return (
+        <BrowserRouter>
+        <Navbar />
+        <main className="container">
+            <Routes>
+    {chr(10).join(routes)}
+            </Routes>
+       </main>
+     </BrowserRouter>
+    );
+    }}
 
 export default App;
 '''

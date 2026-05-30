@@ -2,6 +2,7 @@ from email.mime import text
 import re
 from app.project_generator import generate_blueprint_project
 from app.feature_composer import detect_features
+from app.project_spec_generator import generate_project_spec
 PROJECT_KNOWLEDGE = {
     "ecommerce": {
         "name": "EcommerceWebsite",
@@ -84,51 +85,54 @@ def plan_project_request(user_text: str):
     if not any(word in text for word in build_words):
         return None
 
+    spec = generate_project_spec(user_text)
+
     for keyword, data in PROJECT_KNOWLEDGE.items():
         if keyword in text:
             location = detect_location(text)
-            name = detect_project_name(text, data["name"])
-
+            name = detect_project_name(text, spec.get("name", data["name"]))
             open_in_vscode = wants_vscode(text)
-            custom_features = detect_features(text)
-            custom_features = detect_features(text)
-            command = f"create {data['template']} {name} in {location}"
+
+            custom_features = spec.get("features", [])
+
+            blueprint_plan = generate_blueprint_project(
+                keyword,
+                name,
+                location,
+                custom_features
+            )
+
+            if not blueprint_plan["success"]:
+                return None
+
+            steps = [blueprint_plan]
 
             if open_in_vscode:
-                command += " and open it in vscode"
-            else:
-                command += " and open it"
-        print("DEBUG FEATURES:", custom_features)
-        blueprint_plan = generate_blueprint_project(keyword, name, location, custom_features)
+                steps.append({
+                    "success": True,
+                    "action": "open_app_in_location",
+                    "app": "vscode",
+                    "location": f"{location}\\{name}",
+                    "use_last_created_path": True
+                })
 
-        if not blueprint_plan["success"]:
-            return None
-
-        return {
-        "success": True,
-         "planned_plan": {
-        "success": True,
-        "action": "multi_step",
-        "steps": [
-            blueprint_plan,
-            {
+            return {
                 "success": True,
-                "action": "open_app_in_location",
-                "app": "vscode",
-                "location": f"{location}\\{name}",
-                "use_last_created_path": True
+                "planned_plan": {
+                    "success": True,
+                    "action": "multi_step",
+                    "steps": steps
+                },
+                "project_spec": {
+                    "goal": keyword,
+                    "name": name,
+                    "template": data["template"],
+                    "location": location,
+                    "features": data["features"],
+                    "custom_features": custom_features,
+                    "theme": spec.get("theme", "default"),
+                    "open_in_vscode": open_in_vscode
+                }
             }
-        ]
-    },
-    "project_spec": {
-        "custom_features": custom_features,
-        "goal": keyword,
-        "name": name,
-        "template": data["template"],
-        "location": location,
-        "features": data["features"],
-      
-    }
-}
 
     return None

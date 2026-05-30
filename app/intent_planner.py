@@ -59,13 +59,11 @@ def wants_vscode(text: str):
 
 
 def plan_intent(user_command: str):
-    """
-    Returns:
-    - dict action plan if natural language intent is detected
-    - original string command if no strong intent is detected
-    """
-
     text = clean_text(user_command)
+
+    location = detect_location(text)
+    open_in_vscode = wants_vscode(text)
+
     project_plan = plan_project_request(user_command)
 
     if project_plan is not None:
@@ -75,6 +73,8 @@ def plan_intent(user_command: str):
         if "planned_command" in project_plan:
             return project_plan["planned_command"]
 
+
+    # old planner code continues below
    # Website / frontend / portfolio
     if (
         "website" in text

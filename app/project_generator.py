@@ -1,8 +1,10 @@
+import json
+
 from app.react_route_builder import build_react_router_files
 from app.project_blueprints import PROJECT_BLUEPRINTS
 from app.project_templates import PROJECT_TEMPLATES
 from app.feature_composer import compose_feature_files
-import json
+from app.dynamic_page_generator import generate_dynamic_feature_files
 
 
 def add_package_dependency(files, package_name, version="latest"):
@@ -22,16 +24,27 @@ def add_package_dependency(files, package_name, version="latest"):
 
     return files
 
-def generate_blueprint_project(blueprint_name: str, project_name: str, location: str, custom_features=None):
+
+def get_blueprint(blueprint_name: str):
     blueprint_name = blueprint_name.lower().strip()
 
-    if blueprint_name not in PROJECT_BLUEPRINTS:
-        return {
-            "success": False,
-            "message": f"Unknown blueprint: {blueprint_name}"
-        }
+    if blueprint_name in PROJECT_BLUEPRINTS:
+        return PROJECT_BLUEPRINTS[blueprint_name]
 
-    blueprint = PROJECT_BLUEPRINTS[blueprint_name]
+    return {
+        "template": "react app",
+        "folders": [
+            "src/pages",
+            "src/components",
+            "src/data"
+        ],
+        "files": {}
+    }
+
+
+def generate_blueprint_project(blueprint_name: str, project_name: str, location: str, custom_features=None):
+    blueprint = get_blueprint(blueprint_name)
+
     base_template = PROJECT_TEMPLATES[blueprint["template"]]
 
     folders = list(base_template["folders"])
@@ -41,17 +54,23 @@ def generate_blueprint_project(blueprint_name: str, project_name: str, location:
     files.update(blueprint.get("files", {}))
 
     if custom_features:
-        files.update(compose_feature_files(custom_features))
-        page_files = []
+        dynamic_files = generate_dynamic_feature_files(custom_features)
+        registry_files = compose_feature_files(custom_features)
+
+        files.update(dynamic_files)
+        files.update(registry_files)
+
+    page_files = []
 
     for file_path in files.keys():
         if file_path.startswith("src/pages/") and file_path.endswith(".jsx"):
             page_files.append(file_path)
 
-    router_files = build_react_router_files(page_files)
-    files.update(router_files)
     if page_files:
-     files = add_package_dependency(files, "react-router-dom", "latest")
+        router_files = build_react_router_files(page_files)
+        files.update(router_files)
+        files = add_package_dependency(files, "react-router-dom", "latest")
+
     return {
         "success": True,
         "action": "create_project",
@@ -61,5 +80,3 @@ def generate_blueprint_project(blueprint_name: str, project_name: str, location:
         "folders": folders,
         "files": files
     }
-    
-    
