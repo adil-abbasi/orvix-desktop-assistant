@@ -1,7 +1,9 @@
 import re
 from app.project_planner import plan_project_request
 from app.action_planner import plan_from_project_goal
-
+from app.project_spec_generator import generate_project_spec
+from app.ai_plan_schema import validate_plan
+from app.plan_executor import execute_plan
 
 def clean_text(text: str):
     
@@ -64,6 +66,35 @@ def plan_intent(user_command: str):
     location = detect_location(text)
     open_in_vscode = wants_vscode(text)
 
+    build_words = ["build", "make", "generate", "banao", "banani", "banana", "chahiye"]
+
+    if any(word in text for word in build_words):
+        spec = generate_project_spec(user_command)
+        spec["location"] = location
+
+        validation = validate_plan(spec)
+
+        if validation["valid"]:
+            plan = execute_plan(spec)
+
+            if plan.get("success"):
+                steps = [plan]
+
+                if open_in_vscode:
+                    steps.append({
+                        "success": True,
+                        "action": "open_app_in_location",
+                        "app": "vscode",
+                        "location": f"{location}\\{spec['name']}",
+                        "use_last_created_path": True
+                    })
+
+                return {
+                    "success": True,
+                    "action": "multi_step",
+                    "steps": steps
+                }
+
     project_plan = plan_project_request(user_command)
 
     if project_plan is not None:
@@ -73,7 +104,7 @@ def plan_intent(user_command: str):
         if "planned_command" in project_plan:
             return project_plan["planned_command"]
 
-
+    # old planner code continues below
     # old planner code continues below
    # Website / frontend / portfolio
     if (
