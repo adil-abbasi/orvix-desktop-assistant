@@ -4,6 +4,8 @@ from app.action_planner import plan_from_project_goal
 from app.project_spec_generator import generate_project_spec
 from app.ai_plan_schema import validate_plan
 from app.plan_executor import execute_plan
+from app.ai_planner import create_project_plan
+
 
 def clean_text(text: str):
     
