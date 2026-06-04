@@ -1,7 +1,10 @@
-from app.ai.gemini_provider import ask_gemini
+from app.ai.gemini_provider import configure, ask_gemini
 from app.ai.ollama_provider import ask_ollama
-from app.ai.config.ai_config import AI_PROVIDER
+from app.ai.config.ai_config import AI_PROVIDER, GEMINI_API_KEY
 from app.ai_cache import get_cached_response, set_cached_response
+
+
+configure(GEMINI_API_KEY)
 
 
 def is_quota_error(error: str):
