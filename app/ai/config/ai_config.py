@@ -1,1 +1,3 @@
-AI_PROVIDER = "rule_based"
+AI_PROVIDER = "gemini"
+
+GEMINI_API_KEY = "AQ.Ab8RN6IvpspFKioYyxE-n2suQ3UCDFz4hjk8mArzkWP0nPtLKg"

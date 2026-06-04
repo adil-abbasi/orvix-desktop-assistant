@@ -1,4 +1,4 @@
-#!C:\Users\adila\OneDrive\Desktop\Orvix\venv\Scripts\python.exe
+#!C:\Users\adila\orvix-desktop-assistant\venv\Scripts\python.exe
 
 ##############################################################################
 #
