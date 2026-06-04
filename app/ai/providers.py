@@ -1,29 +1,58 @@
-from app.ai.gemini_provider import (
-    configure,
-    ask_gemini
-)
-
+from app.ai.gemini_provider import ask_gemini
 from app.ai.ollama_provider import ask_ollama
-
-from app.ai.config.ai_config import (
-    GEMINI_API_KEY,
-    AI_PROVIDER
-)
-
-configure(GEMINI_API_KEY)
+from app.ai.config.ai_config import AI_PROVIDER
+from app.ai_cache import get_cached_response, set_cached_response
 
 
-def ask_ai(prompt: str, provider=None):
+def is_quota_error(error: str):
+    error = error.lower()
+
+    return (
+        "429" in error
+        or "quota" in error
+        or "too many requests" in error
+        or "rate limit" in error
+    )
+
+
+def ask_ai(prompt: str, provider=None, use_cache=True):
     provider = provider or AI_PROVIDER
 
+    if use_cache:
+        cached = get_cached_response(prompt)
+
+        if cached:
+            return cached
+
     if provider == "gemini":
-        return ask_gemini(prompt)
+        result = ask_gemini(prompt)
+
+        if result.get("success"):
+            if use_cache:
+                set_cached_response(prompt, result)
+
+            return result
+
+        if is_quota_error(result.get("error", "")):
+            fallback = ask_ollama(prompt)
+
+            if fallback.get("success") and use_cache:
+                set_cached_response(prompt, fallback)
+
+            return fallback
+
+        return result
 
     if provider == "ollama":
-        return ask_ollama(prompt)
+        result = ask_ollama(prompt)
+
+        if result.get("success") and use_cache:
+            set_cached_response(prompt, result)
+
+        return result
 
     return {
         "success": False,
         "response": "",
-        "error": "Unknown provider"
+        "error": f"Unknown provider: {provider}"
     }
