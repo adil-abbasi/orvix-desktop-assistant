@@ -3,7 +3,7 @@ import re
 
 from app.project_spec_generator import generate_project_spec
 from app.ai.providers import ask_ai
-
+from app.project_design_spec import generate_design_spec
 
 def extract_json(text: str):
     try:
@@ -73,6 +73,31 @@ def create_project_plan(user_request: str):
 
     if ai_plan:
         ai_plan["raw_request"] = user_request
+
+        design_spec = generate_design_spec(user_request)
+
+        if design_spec:
+            ai_plan["design_spec"] = design_spec
+
+            if not ai_plan.get("features"):
+                features = []
+
+                for page in design_spec.get("pages", []):
+                    feature = (
+                        page.lower()
+                        .replace("&", "")
+                        .replace("/", " ")
+                        .replace("-", "_")
+                        .replace(" ", "_")
+                        .replace("__", "_")
+                        .strip("_")
+                    )
+
+                    if feature and feature != "home":
+                        features.append(feature)
+
+                ai_plan["features"] = features
+
         return ai_plan
 
     return create_rule_based_plan(user_request)

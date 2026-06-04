@@ -1,5 +1,7 @@
 import json
-
+from app.batch_ai_code_generator import generate_batch_page_files
+from app.landing_page_generator import generate_home_page
+from app.ui_style_generator import generate_professional_css
 from app.react_route_builder import build_react_router_files
 from app.project_blueprints import PROJECT_BLUEPRINTS
 from app.project_templates import PROJECT_TEMPLATES
@@ -19,10 +21,21 @@ def add_package_dependency(files, package_name, version="latest"):
         data["dependencies"] = {}
 
     data["dependencies"][package_name] = version
-
     files["package.json"] = json.dumps(data, indent=2)
 
     return files
+
+
+def normalize_feature_name(name: str):
+    return (
+        name.lower()
+        .replace("&", "")
+        .replace("/", " ")
+        .replace("-", "_")
+        .replace(" ", "_")
+        .replace("__", "_")
+        .strip("_")
+    )
 
 
 def get_blueprint(blueprint_name: str):
@@ -42,9 +55,14 @@ def get_blueprint(blueprint_name: str):
     }
 
 
-def generate_blueprint_project(blueprint_name: str, project_name: str, location: str, custom_features=None):
+def generate_blueprint_project(
+    blueprint_name: str,
+    project_name: str,
+    location: str,
+    custom_features=None,
+    design_spec=None
+):
     blueprint = get_blueprint(blueprint_name)
-
     base_template = PROJECT_TEMPLATES[blueprint["template"]]
 
     folders = list(base_template["folders"])
@@ -60,6 +78,21 @@ def generate_blueprint_project(blueprint_name: str, project_name: str, location:
         files.update(dynamic_files)
         files.update(registry_files)
 
+        if design_spec:
+            ai_files = generate_batch_page_files(
+                project_name,
+                design_spec,
+                custom_features
+            )
+
+            if ai_files:
+                files.update(ai_files)
+
+    if design_spec:
+        theme = design_spec.get("theme")
+
+    files["src/style.css"] = generate_professional_css(theme)
+
     page_files = []
 
     for file_path in files.keys():
@@ -67,7 +100,7 @@ def generate_blueprint_project(blueprint_name: str, project_name: str, location:
             page_files.append(file_path)
 
     if page_files:
-        router_files = build_react_router_files(page_files)
+        router_files = build_react_router_files(page_files, project_name)
         files.update(router_files)
         files = add_package_dependency(files, "react-router-dom", "latest")
 

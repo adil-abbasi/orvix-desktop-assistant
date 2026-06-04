@@ -1,73 +1,75 @@
-def component_name_from_file(file_path: str):
-    name = file_path.split("/")[-1].replace(".jsx", "")
-    return name
+import os
 
 
-def route_path_from_component(component: str):
-    if component.lower() == "home":
+def component_name_from_file(file_path):
+    name = os.path.basename(file_path).replace(".jsx", "")
+
+    return "".join(
+        part.capitalize()
+        for part in name.replace("-", "_").split("_")
+        if part.strip()
+    )
+
+
+def route_from_file(file_path):
+    name = os.path.basename(file_path).replace(".jsx", "")
+
+    if name.lower() == "home":
         return "/"
 
-    route = ""
-    for i, char in enumerate(component):
-        if char.isupper() and i != 0:
-            route += "-"
-        route += char.lower()
-
-    return f"/{route}"
+    return "/" + name.replace("_", "-").lower()
 
 
-def build_react_router_files(page_files: list):
-    imports = []
+def build_react_router_files(page_files, app_name="Generated App"):
+    imports = [
+        'import { BrowserRouter, Routes, Route, Link } from "react-router-dom";'
+    ]
+
     routes = []
-    nav_links = []
+    links = []
 
     for file_path in page_files:
         component = component_name_from_file(file_path)
+        route = route_from_file(file_path)
 
-        imports.append(f'import {component} from "./pages/{component}";')
+        imports.append(
+            f'import {component} from "./pages/{component}";'
+        )
 
-        route_path = route_path_from_component(component)
-        routes.append(f'        <Route path="{route_path}" element={{<{component} />}} />')
+        routes.append(
+            f'          <Route path="{route}" element={{<{component} />}} />'
+        )
 
-        label = component.replace("Dashboard", " Dashboard")
-        nav_links.append(f'      <Link to="{route_path}">{label}</Link>')
+        links.append(
+            f'          <Link to="{route}">{component}</Link>'
+        )
 
-        app_jsx = f'''import {{ BrowserRouter, Routes, Route }} from "react-router-dom";
-    import Navbar from "./components/Navbar";
-    {chr(10).join(imports)}
-    import "./style.css";
+    imports_text = "\n".join(imports)
+    routes_text = "\n".join(routes)
+    links_text = "\n".join(links)
 
-    function App() {{
-    return (
-        <BrowserRouter>
-        <Navbar />
-        <main className="container">
-            <Routes>
-    {chr(10).join(routes)}
-            </Routes>
-       </main>
-     </BrowserRouter>
-    );
-    }}
+    app_code = f'''{imports_text}
+
+function App() {{
+  return (
+    <BrowserRouter>
+      <nav className="navbar">
+        <h2>{app_name}</h2>
+{links_text}
+      </nav>
+
+      <main className="container">
+        <Routes>
+{routes_text}
+        </Routes>
+      </main>
+    </BrowserRouter>
+  );
+}}
 
 export default App;
 '''
 
-    navbar_jsx = f'''import {{ Link }} from "react-router-dom";
-
-function Navbar() {{
-  return (
-    <nav className="navbar">
-      <h2>Orvix App</h2>
-{chr(10).join(nav_links)}
-    </nav>
-  );
-}}
-
-export default Navbar;
-'''
-
     return {
-        "src/App.jsx": app_jsx,
-        "src/components/Navbar.jsx": navbar_jsx
+        "src/App.jsx": app_code
     }

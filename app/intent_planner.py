@@ -71,7 +71,7 @@ def plan_intent(user_command: str):
     build_words = ["build", "make", "generate", "banao", "banani", "banana", "chahiye"]
 
     if any(word in text for word in build_words):
-        spec = generate_project_spec(user_command)
+        spec = create_project_plan(user_command)
         spec["location"] = location
 
         validation = validate_plan(spec)
