@@ -7,7 +7,7 @@ from app.project_blueprints import PROJECT_BLUEPRINTS
 from app.project_templates import PROJECT_TEMPLATES
 from app.feature_composer import compose_feature_files
 from app.dynamic_page_generator import generate_dynamic_feature_files
-
+from app.project_memory import save_last_project
 
 def add_package_dependency(files, package_name, version="latest"):
     package_json = files.get("package.json")
@@ -103,7 +103,8 @@ def generate_blueprint_project(
         router_files = build_react_router_files(page_files, project_name)
         files.update(router_files)
         files = add_package_dependency(files, "react-router-dom", "latest")
-
+    # actual created path is resolved by file system later; store logical path
+    save_last_project(f"{location}\\{project_name}")
     return {
         "success": True,
         "action": "create_project",

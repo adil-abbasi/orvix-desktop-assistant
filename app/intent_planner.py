@@ -1,14 +1,18 @@
 import re
+
 from app.project_planner import plan_project_request
 from app.action_planner import plan_from_project_goal
-from app.project_spec_generator import generate_project_spec
 from app.ai_plan_schema import validate_plan
 from app.plan_executor import execute_plan
 from app.ai_planner import create_project_plan
+from app.project_memory import load_last_project
+from app.project_modifier import modify_project
+from app.modification_planner import create_modification_plan
+from app.modification_code_generator import generate_file_changes
+from app.modification_executor import apply_file_changes
 
 
 def clean_text(text: str):
-    
     return text.lower().strip()
 
 
@@ -28,6 +32,7 @@ def detect_location(text: str):
                 return location
 
     drive_match = re.search(r"\b([a-zA-Z]:\\[^\n]*)", text)
+
     if drive_match:
         return drive_match.group(1).strip()
 
@@ -44,6 +49,7 @@ def detect_project_name(text: str, default_name: str):
 
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)
+
         if match:
             return match.group(1).strip()
 
@@ -62,13 +68,94 @@ def wants_vscode(text: str):
     )
 
 
+def is_modify_command(text: str):
+    return (
+        "modify current project" in text
+        or "edit current project" in text
+        or "change current project" in text
+        or "update current project" in text
+        or "add to current project" in text
+    )
+
+
+def handle_modify_current_project(user_command: str):
+    project_path = load_last_project()
+
+    if not project_path:
+        return "No current project found. Create or open a project first."
+
+    project = modify_project(project_path, user_command)
+
+    if not project.get("success"):
+        return project.get("message", "Failed to read current project.")
+
+    plan = create_modification_plan(
+        user_command,
+        project["project_files"]
+    )
+
+    if not plan:
+        return "Could not create modification plan."
+
+    changes = generate_file_changes(
+        user_command,
+        project["project_files"],
+        plan
+    )
+
+    if not changes:
+        return "No file changes were generated."
+
+    result = apply_file_changes(
+        project_path,
+        changes
+    )
+
+    return {
+    "success": True,
+    "action": "display_message",
+    "message": "\n".join(result.get("messages", []))
+}
+
+
+def build_multistep_plan(plan, location, project_name, open_in_vscode):
+    steps = [plan]
+
+    if open_in_vscode:
+        steps.append({
+            "success": True,
+            "action": "open_app_in_location",
+            "app": "vscode",
+            "location": f"{location}\\{project_name}",
+            "use_last_created_path": True
+        })
+
+    return {
+        "success": True,
+        "action": "multi_step",
+        "steps": steps
+    }
+
+
 def plan_intent(user_command: str):
     text = clean_text(user_command)
 
     location = detect_location(text)
     open_in_vscode = wants_vscode(text)
 
-    build_words = ["build", "make", "generate", "banao", "banani", "banana", "chahiye"]
+    if is_modify_command(text):
+        return handle_modify_current_project(user_command)
+
+    build_words = [
+        "build",
+        "make",
+        "create",
+        "generate",
+        "banao",
+        "banani",
+        "banana",
+        "chahiye"
+    ]
 
     if any(word in text for word in build_words):
         spec = create_project_plan(user_command)
@@ -80,22 +167,12 @@ def plan_intent(user_command: str):
             plan = execute_plan(spec)
 
             if plan.get("success"):
-                steps = [plan]
-
-                if open_in_vscode:
-                    steps.append({
-                        "success": True,
-                        "action": "open_app_in_location",
-                        "app": "vscode",
-                        "location": f"{location}\\{spec['name']}",
-                        "use_last_created_path": True
-                    })
-
-                return {
-                    "success": True,
-                    "action": "multi_step",
-                    "steps": steps
-                }
+                return build_multistep_plan(
+                    plan,
+                    location,
+                    spec.get("name", "GeneratedProject"),
+                    open_in_vscode
+                )
 
     project_plan = plan_project_request(user_command)
 
@@ -106,9 +183,6 @@ def plan_intent(user_command: str):
         if "planned_command" in project_plan:
             return project_plan["planned_command"]
 
-    # old planner code continues below
-    # old planner code continues below
-   # Website / frontend / portfolio
     if (
         "website" in text
         or "web app" in text
@@ -120,7 +194,6 @@ def plan_intent(user_command: str):
         name = detect_project_name(text, "Portfolio")
         return plan_from_project_goal("react app", name, location, open_in_vscode)
 
-    # Backend / API
     if (
         "backend" in text
         or "api" in text
@@ -130,7 +203,6 @@ def plan_intent(user_command: str):
         name = detect_project_name(text, "APIBackend")
         return plan_from_project_goal("node express app", name, location, open_in_vscode)
 
-    # Machine learning / AI
     if (
         "machine learning" in text
         or "ml project" in text
@@ -151,7 +223,6 @@ def plan_intent(user_command: str):
 
         return plan_from_project_goal("ml project", name, location, open_in_vscode)
 
-    # Django / LMS / admin panel
     if (
         "django" in text
         or "lms" in text
@@ -161,7 +232,6 @@ def plan_intent(user_command: str):
         name = detect_project_name(text, "LMS")
         return plan_from_project_goal("django app", name, location, open_in_vscode)
 
-    # Spring Boot / Java backend
     if (
         "spring boot" in text
         or "java backend" in text
@@ -170,7 +240,6 @@ def plan_intent(user_command: str):
         name = detect_project_name(text, "SpringBackend")
         return plan_from_project_goal("spring boot project", name, location, open_in_vscode)
 
-    # Python app
     if (
         "python app" in text
         or "python project" in text

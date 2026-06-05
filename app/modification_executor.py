@@ -1,5 +1,7 @@
 import os
 
+from app.code_sanitizer import sanitize_file_changes
+
 
 def normalize_path(project_path, relative_path):
     relative_path = relative_path.replace("/", os.sep)
@@ -28,6 +30,8 @@ def write_file(project_path, relative_path, content):
 
 
 def apply_file_changes(project_path, changes):
+    changes = sanitize_file_changes(changes)
+
     messages = []
 
     for relative_path, content in changes.items():

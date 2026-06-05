@@ -395,7 +395,9 @@ class OrvixWindow(QWidget):
             self.log_box.append("Understanding command...")
 
             planned_result = plan_intent(command)
-
+            if isinstance(planned_result, dict) and planned_result.get("action") == "display_message":
+              self.chat_box.append(planned_result.get("message", "Done."))
+              return
             if isinstance(planned_result, dict):
                 parsed = planned_result
                 self.log_box.append("Planned: validated action plan")
