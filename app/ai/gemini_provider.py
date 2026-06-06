@@ -1,39 +1,41 @@
-import google.generativeai as genai
+from google import genai
 
 MODEL_NAME = "gemini-2.5-flash"
 
+_client = None
+
 
 def configure(api_key):
-    genai.configure(api_key=api_key)
+    global _client
+
+    _client = genai.Client(
+        api_key=api_key
+    )
 
 
 def extract_response_text(response):
     try:
-        if hasattr(response, "text") and response.text:
+        if response.text:
             return response.text
     except Exception:
         pass
 
-    try:
-        parts = []
-
-        for candidate in response.candidates:
-            content = candidate.content
-
-            for part in content.parts:
-                if hasattr(part, "text"):
-                    parts.append(part.text)
-
-        return "\n".join(parts)
-
-    except Exception:
-        return ""
+    return ""
 
 
 def ask_gemini(prompt: str):
     try:
-        model = genai.GenerativeModel(MODEL_NAME)
-        response = model.generate_content(prompt)
+        if _client is None:
+            return {
+                "success": False,
+                "response": "",
+                "error": "Gemini client is not configured."
+            }
+
+        response = _client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
 
         text = extract_response_text(response)
 
