@@ -10,6 +10,10 @@ from app.project_modifier import modify_project
 from app.modification_planner import create_modification_plan
 from app.modification_code_generator import generate_file_changes
 from app.modification_executor import apply_file_changes
+from app.word_agent.document_actions import execute_document_action
+from app.task_router import route_task
+from app.agent_dispatcher import dispatch
+
 
 
 def clean_text(text: str):
@@ -139,7 +143,37 @@ def build_multistep_plan(plan, location, project_name, open_in_vscode):
 
 def plan_intent(user_command: str):
     text = clean_text(user_command)
+    route = route_task(user_command)
+    task_type = route["task_type"]
+    if task_type == "document":
+        return dispatch(
+            task_type,
+            user_command
+        )
+    word_action_keywords = [
+        "mcq",
+        "mcqs",
+        "viva",
+        "summarize",
+        "summary",
+        "paraphrase",
+        "rewrite",
+        "references",
+        "reference",
+        "conclusion",
+        "continue writing",
+        "add section",
+        "executive summary",
+        "study notes"
+    ]
 
+    if any(keyword in text for keyword in word_action_keywords):
+        result = execute_document_action(user_command)
+
+        if result.get("success"):
+            return f"✓ {result.get('message', 'Word document updated.')}"
+
+        return f"✗ {result.get('message', 'Word action failed.')}"
     location = detect_location(text)
     open_in_vscode = wants_vscode(text)
     word_result = handle_word_command(user_command)

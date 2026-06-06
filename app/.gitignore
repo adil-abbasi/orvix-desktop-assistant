@@ -1,2 +1,6 @@
 .env
 memory/ai_cache.json
+__pycache__/
+*.pyc
+memory/ai_cache.json
+.env
