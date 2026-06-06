@@ -1,5 +1,5 @@
 import re
-
+from app.word_command_handler import handle_word_command
 from app.project_planner import plan_project_request
 from app.action_planner import plan_from_project_goal
 from app.ai_plan_schema import validate_plan
@@ -142,7 +142,10 @@ def plan_intent(user_command: str):
 
     location = detect_location(text)
     open_in_vscode = wants_vscode(text)
+    word_result = handle_word_command(user_command)
 
+    if word_result:
+        return word_result
     if is_modify_command(text):
         return handle_modify_current_project(user_command)
 
