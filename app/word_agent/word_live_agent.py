@@ -1,6 +1,9 @@
 import time
 import re
+from pathlib import Path
+
 import win32com.client
+
 
 WORD_APP = None
 
@@ -8,7 +11,10 @@ WORD_APP = None
 def get_word_app():
     global WORD_APP
 
-    if WORD_APP is None:
+    try:
+        if WORD_APP is None:
+            WORD_APP = win32com.client.Dispatch("Word.Application")
+    except Exception:
         WORD_APP = win32com.client.Dispatch("Word.Application")
 
     WORD_APP.Visible = True
@@ -31,7 +37,7 @@ def open_or_create_document(file_path=None):
     word = get_word_app()
 
     if file_path:
-        doc = word.Documents.Open(file_path)
+        doc = word.Documents.Open(str(file_path))
     else:
         doc = word.Documents.Add()
 
@@ -50,13 +56,13 @@ def open_or_create_document(file_path=None):
 
 def type_visible_text(word, text, delay=0.018, chunk_size=5):
     """
-    Fast but visible Word typing.
-    Small chunks make it visible.
-    Delay keeps Word from looking like instant paste.
+    Types text into Word in visible small chunks.
     """
 
     if not text:
         return
+
+    text = str(text)
 
     for i in range(0, len(text), chunk_size):
         chunk = text[i:i + chunk_size]
@@ -76,11 +82,100 @@ def type_visible_text(word, text, delay=0.018, chunk_size=5):
             time.sleep(delay)
 
 
+def apply_line_style(word, line: str):
+    """
+    Applies simple Word styling based on line type.
+    Keeps formatting safe and readable.
+    """
+
+    clean_line = line.strip()
+
+    if not clean_line:
+        return ""
+
+    # Title-like lines
+    if len(clean_line) < 70 and not clean_line.endswith("."):
+        lower_line = clean_line.lower()
+
+        heading_words = [
+            "introduction",
+            "summary",
+            "key concepts",
+            "applications",
+            "benefits",
+            "advantages",
+            "disadvantages",
+            "examples",
+            "study notes",
+            "conclusion",
+            "multiple choice questions",
+            "mcqs",
+            "references"
+        ]
+
+        if lower_line in heading_words:
+            try:
+                word.Selection.Style = "Heading 1"
+            except Exception:
+                pass
+            return clean_line
+
+    # Numbered headings like 1. Introduction
+    if re.match(r"^\d+\.\s+[A-Za-z].*", clean_line) and len(clean_line) < 90:
+        try:
+            word.Selection.Style = "Heading 1"
+        except Exception:
+            pass
+        return clean_line
+
+    # Lines ending with colon are usually headings
+    if clean_line.endswith(":") and len(clean_line) < 80:
+        try:
+            word.Selection.Style = "Heading 1"
+        except Exception:
+            pass
+        return clean_line
+
+    # Bullet lines
+    if clean_line.startswith("- "):
+        try:
+            word.Selection.Style = "List Paragraph"
+        except Exception:
+            pass
+        return "• " + clean_line[2:].strip()
+
+    # MCQ options should remain normal
+    if re.match(r"^[A-D]\.\s+", clean_line):
+        try:
+            word.Selection.Style = "Normal"
+        except Exception:
+            pass
+        return clean_line
+
+    # Answer lines can be bold-ish style impossible safely without extra range,
+    # so keep normal for stability.
+    if clean_line.lower().startswith("answer:"):
+        try:
+            word.Selection.Style = "Normal"
+        except Exception:
+            pass
+        return clean_line
+
+    try:
+        word.Selection.Style = "Normal"
+    except Exception:
+        pass
+
+    return clean_line
+
+
 def live_insert_text(text, delay=0.015, chunk_size=5):
     word = get_word_app()
 
     if word.Documents.Count == 0:
         word.Documents.Add()
+
+    text = str(text or "")
 
     for line in text.split("\n"):
         clean_line = line.strip()
@@ -89,9 +184,11 @@ def live_insert_text(text, delay=0.015, chunk_size=5):
             word.Selection.TypeParagraph()
             continue
 
+        styled_line = apply_line_style(word, clean_line)
+
         type_visible_text(
             word=word,
-            text=clean_line,
+            text=styled_line,
             delay=delay,
             chunk_size=chunk_size
         )
@@ -115,6 +212,8 @@ def insert_structured_text(
     if word.Documents.Count == 0:
         word.Documents.Add()
 
+    text = str(text or "")
+
     for line in text.split("\n"):
         line = line.strip()
 
@@ -122,35 +221,17 @@ def insert_structured_text(
             word.Selection.TypeParagraph()
             continue
 
-        if line.startswith("# "):
-            word.Selection.Style = "Title"
-            clean_line = line.replace("# ", "", 1)
-
-        elif line.startswith("## "):
-            word.Selection.Style = "Heading 1"
-            clean_line = line.replace("## ", "", 1)
-
-        elif line.startswith("### "):
-            word.Selection.Style = "Heading 2"
-            clean_line = line.replace("### ", "", 1)
-
-        elif line.startswith("- "):
-            word.Selection.Style = "List Paragraph"
-            clean_line = "• " + line.replace("- ", "", 1)
-
-        else:
-            word.Selection.Style = "Normal"
-            clean_line = line
+        styled_line = apply_line_style(word, line)
 
         if live:
             type_visible_text(
                 word=word,
-                text=clean_line,
+                text=styled_line,
                 delay=delay,
                 chunk_size=chunk_size
             )
         else:
-            word.Selection.TypeText(clean_line)
+            word.Selection.TypeText(styled_line)
 
         word.Selection.TypeParagraph()
 
@@ -159,10 +240,11 @@ def insert_structured_text(
         "message": "Structured text inserted."
     }
 
+
 def stream_insert_text_chunks(chunks, delay=0.006, chunk_size=6):
     """
-    Stream AI chunks directly into Microsoft Word.
-    This allows Word to start writing while AI is still generating.
+    Streams AI/fallback chunks directly into Microsoft Word.
+    If Gemini fails, fallback text still writes safely.
     """
 
     word = get_word_app()
@@ -176,7 +258,7 @@ def stream_insert_text_chunks(chunks, delay=0.006, chunk_size=6):
         if not incoming_text:
             continue
 
-        buffer += incoming_text
+        buffer += str(incoming_text)
 
         while "\n" in buffer:
             line, buffer = buffer.split("\n", 1)
@@ -186,30 +268,23 @@ def stream_insert_text_chunks(chunks, delay=0.006, chunk_size=6):
                 word.Selection.TypeParagraph()
                 continue
 
-            # Basic heading detection
-            if re.match(r"^\d+\.\s+", line):
-                word.Selection.Style = "Heading 1"
-            elif line.endswith(":") and len(line) < 80:
-                word.Selection.Style = "Heading 1"
-            else:
-                word.Selection.Style = "Normal"
+            styled_line = apply_line_style(word, line)
 
             type_visible_text(
                 word=word,
-                text=line,
+                text=styled_line,
                 delay=delay,
                 chunk_size=chunk_size
             )
 
             word.Selection.TypeParagraph()
 
-    # Write remaining buffer
     if buffer.strip():
-        word.Selection.Style = "Normal"
+        styled_line = apply_line_style(word, buffer.strip())
 
         type_visible_text(
             word=word,
-            text=buffer.strip(),
+            text=styled_line,
             delay=delay,
             chunk_size=chunk_size
         )
@@ -220,14 +295,15 @@ def stream_insert_text_chunks(chunks, delay=0.006, chunk_size=6):
         "success": True,
         "message": "Streamed text inserted into Word."
     }
-    
+
+
 def fast_insert_text(text):
     word = get_word_app()
 
     if word.Documents.Count == 0:
         word.Documents.Add()
 
-    word.Selection.TypeText(text)
+    word.Selection.TypeText(str(text or ""))
 
     return {
         "success": True,
@@ -245,11 +321,17 @@ def save_active_document(file_path):
         }
 
     doc = word.ActiveDocument
+    file_path = Path(file_path)
 
     try:
-        doc.SaveAs2(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
     except Exception:
-        doc.SaveAs(file_path)
+        pass
+
+    try:
+        doc.SaveAs2(str(file_path))
+    except Exception:
+        doc.SaveAs(str(file_path))
 
     return {
         "success": True,

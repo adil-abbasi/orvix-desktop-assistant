@@ -16,51 +16,64 @@ def create_fast_then_live_ai_document(
     document_type="document",
     user_command=None
 ):
-    desktop = get_desktop_path()
+    try:
+        desktop = get_desktop_path()
 
-    if not filename.lower().endswith(".docx"):
-        filename = f"{filename}.docx"
+        if not filename.lower().endswith(".docx"):
+            filename = f"{filename}.docx"
 
-    file_path = get_unique_file_path(desktop, filename)
+        file_path = get_unique_file_path(desktop, filename)
 
-    progress_manager.update("Opening Microsoft Word...")
-    open_or_create_document()
+        progress_manager.update("Opening Microsoft Word...")
+        open_or_create_document()
 
-    progress_manager.update("Microsoft Word is ready.")
+        progress_manager.update("Microsoft Word is ready.")
 
-    live_insert_text(
-        f"{topic.title()}\n\nPreparing AI content...\n\n",
-        delay=0.008,
-        chunk_size=6
-    )
+        intro_text = f"{topic.title()}\n\nPreparing AI content...\n\n"
 
-    save_active_document(file_path)
-    save_current_document(file_path)
+        live_insert_text(
+            intro_text,
+            delay=0.008,
+            chunk_size=6
+        )
 
-    progress_manager.update("AI is writing live into Word...")
+        save_active_document(file_path)
+        save_current_document(file_path)
 
-    chunks = stream_document_from_user_command(
-        user_command=user_command or topic,
-        topic=topic,
-        document_type=document_type
-    )
+        progress_manager.update("Writing document content...")
 
-    stream_insert_text_chunks(
-        chunks,
-        delay=0.006,
-        chunk_size=6
-    )
+        chunks = stream_document_from_user_command(
+            user_command=user_command or topic,
+            topic=topic,
+            document_type=document_type
+        )
 
-    progress_manager.update("Saving document...")
-    save_active_document(file_path)
+        stream_insert_text_chunks(
+            chunks,
+            delay=0.006,
+            chunk_size=6
+        )
 
-    progress_manager.update("Task completed.")
+        progress_manager.update("Saving document...")
+        save_active_document(file_path)
+        save_current_document(file_path)
 
-    return {
-        "success": True,
-        "path": file_path,
-        "message": f"Document completed: {file_path}"
-    }
+        progress_manager.update("Task completed.")
+
+        return {
+            "success": True,
+            "path": str(file_path),
+            "message": f"Document completed: {file_path}"
+        }
+
+    except Exception as error:
+        progress_manager.update("Word document creation failed.")
+
+        return {
+            "success": False,
+            "path": "",
+            "message": f"Failed to create Word document: {error}"
+        }
 
 
 def create_structured_docx_then_open(

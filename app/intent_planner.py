@@ -13,6 +13,8 @@ from app.modification_executor import apply_file_changes
 from app.word_agent.document_actions import execute_document_action
 from app.task_router import route_task
 from app.agent_dispatcher import dispatch
+    # 2. PowerPoint / PPT creation should go to PPT agent.
+from app.ppt_command_handler import is_ppt_creation_command, build_ppt_creation_plan
 
 
 
@@ -140,7 +142,72 @@ def build_multistep_plan(plan, location, project_name, open_in_vscode):
         "steps": steps
     }
 
+def is_normal_system_command(text: str):
+    starters = [
+        "create folder",
+        "create a folder",
+        "create file",
+        "create text file",
+        "create python file",
+        "create excel file",
+        "create powerpoint file",
+        "create presentation",
+        "create spreadsheet",
+        "open app",
+        "open folder",
+        "open file",
+        "open ",
+        "copy ",
+        "move ",
+        "cut ",
+        "rename ",
+        "delete ",
+        "remove ",
+        "list ",
+        "search "
+    ]
 
+    return any(text.startswith(starter) for starter in starters)
+
+
+def is_project_generation_candidate(text: str):
+    project_keywords = [
+        "project",
+        "app",
+        "website",
+        "web app",
+        "frontend",
+        "backend",
+        "api",
+        "react",
+        "django",
+        "flask",
+        "spring boot",
+        "node",
+        "express",
+        "machine learning",
+        "ml project",
+        "ai project",
+        "prediction",
+        "portfolio",
+        "lms"
+    ]
+
+    build_words = [
+        "build",
+        "make",
+        "create",
+        "generate",
+        "banao",
+        "banani",
+        "banana",
+        "chahiye"
+    ]
+
+    return (
+        any(word in text for word in build_words)
+        and any(keyword in text for keyword in project_keywords)
+    )
 def plan_intent(user_command: str):
     text = clean_text(user_command)
     route = route_task(user_command)
@@ -149,15 +216,24 @@ def plan_intent(user_command: str):
     location = detect_location(text)
     open_in_vscode = wants_vscode(text)
 
-    # 1. Word document creation should return a plan only.
-    # It must not open Word here.
+    # 1. Word document creation should go to Word AI agent.
+    # It must not open Word here; it only returns a plan.
     from app.word_command_handler import is_word_creation_command, build_word_creation_plan
 
     if is_word_creation_command(user_command):
         return build_word_creation_plan(user_command)
 
-    # 2. Existing document actions should also return an executable plan.
-    # Example: summarize current document, add section, references, etc.
+    # 2. PowerPoint / PPT creation should go to PPT agent.
+    from app.ppt_command_handler import is_ppt_creation_command, build_ppt_creation_plan
+
+    if is_ppt_creation_command(user_command):
+        return build_ppt_creation_plan(user_command)
+    # 2. Normal desktop/file/app commands should go directly to command_parser.
+    # Do not send these to AI planner.
+    if is_normal_system_command(text):
+        return user_command
+
+    # 3. Existing document modification actions.
     word_action_keywords = [
         "mcq",
         "mcqs",
@@ -182,7 +258,7 @@ def plan_intent(user_command: str):
             "command": user_command
         }
 
-    # 3. Modify current project
+    # 4. Modify current project.
     if is_modify_command(text):
         return {
             "success": True,
@@ -190,44 +266,7 @@ def plan_intent(user_command: str):
             "command": user_command
         }
 
-    # 4. AI project generation
-    build_words = [
-        "build",
-        "make",
-        "create",
-        "generate",
-        "banao",
-        "banani",
-        "banana",
-        "chahiye"
-    ]
-
-    if any(word in text for word in build_words):
-        spec = create_project_plan(user_command)
-        spec["location"] = location
-
-        validation = validate_plan(spec)
-
-        if validation["valid"]:
-            plan = execute_plan(spec)
-
-            if plan.get("success"):
-                return build_multistep_plan(
-                    plan,
-                    location,
-                    spec.get("name", "GeneratedProject"),
-                    open_in_vscode
-                )
-
-    project_plan = plan_project_request(user_command)
-
-    if project_plan is not None:
-        if "planned_plan" in project_plan:
-            return project_plan["planned_plan"]
-
-        if "planned_command" in project_plan:
-            return project_plan["planned_command"]
-
+    # 5. React / website / frontend project generation.
     if (
         "website" in text
         or "web app" in text
@@ -235,19 +274,42 @@ def plan_intent(user_command: str):
         or "portfolio" in text
         or "site" in text
         or "webpage" in text
+        or "react" in text
     ):
         name = detect_project_name(text, "Portfolio")
+
+        local_plan = {
+            "project_type": "react app",
+            "name": name,
+            "location": location,
+            "features": [],
+            "design_spec": None
+        }
+
+        plan = execute_plan(local_plan)
+
+        if plan.get("success"):
+            return build_multistep_plan(
+                plan,
+                location,
+                name,
+                open_in_vscode
+            )
+
         return plan_from_project_goal("react app", name, location, open_in_vscode)
 
+    # 6. Backend / Node / Express project.
     if (
         "backend" in text
         or "api" in text
         or "server" in text
         or "express" in text
+        or "node" in text
     ):
         name = detect_project_name(text, "APIBackend")
         return plan_from_project_goal("node express app", name, location, open_in_vscode)
 
+    # 7. Machine learning / AI / prediction project.
     if (
         "machine learning" in text
         or "ml project" in text
@@ -268,6 +330,7 @@ def plan_intent(user_command: str):
 
         return plan_from_project_goal("ml project", name, location, open_in_vscode)
 
+    # 8. Django / LMS project.
     if (
         "django" in text
         or "lms" in text
@@ -277,6 +340,7 @@ def plan_intent(user_command: str):
         name = detect_project_name(text, "LMS")
         return plan_from_project_goal("django app", name, location, open_in_vscode)
 
+    # 9. Spring Boot project.
     if (
         "spring boot" in text
         or "java backend" in text
@@ -285,6 +349,7 @@ def plan_intent(user_command: str):
         name = detect_project_name(text, "SpringBackend")
         return plan_from_project_goal("spring boot project", name, location, open_in_vscode)
 
+    # 10. Python project.
     if (
         "python app" in text
         or "python project" in text
@@ -292,5 +357,34 @@ def plan_intent(user_command: str):
     ):
         name = detect_project_name(text, "PythonApp")
         return plan_from_project_goal("python app", name, location, open_in_vscode)
+
+    # 11. AI project generation only for real project/app requests.
+    # This must not catch simple commands like create folder/file.
+    if is_project_generation_candidate(text):
+        spec = create_project_plan(user_command)
+        spec["location"] = location
+
+        validation = validate_plan(spec)
+
+        if validation["valid"]:
+            plan = execute_plan(spec)
+
+            if plan.get("success"):
+                return build_multistep_plan(
+                    plan,
+                    location,
+                    spec.get("name", "GeneratedProject"),
+                    open_in_vscode
+                )
+
+    # 12. Old project planner fallback.
+    project_plan = plan_project_request(user_command)
+
+    if project_plan is not None:
+        if "planned_plan" in project_plan:
+            return project_plan["planned_plan"]
+
+        if "planned_command" in project_plan:
+            return project_plan["planned_command"]
 
     return user_command

@@ -6,32 +6,89 @@ from app.word_agent.word_analyzer import analyze_text
 from app.word_agent.word_writer import append_to_word_document
 
 
+def clean_filename(name: str):
+    name = name.strip()
+
+    if not name:
+        return "OrvixDocument"
+
+    blocked_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+
+    for char in blocked_chars:
+        name = name.replace(char, "")
+
+    name = re.sub(r"\s+", "_", name)
+
+    return name or "OrvixDocument"
+
+
 def detect_word_name(text, default_name="OrvixDocument"):
-    match = re.search(r"named\s+([A-Za-z0-9_\-]+)", text, re.IGNORECASE)
-    if match:
-        return match.group(1)
+    patterns = [
+        r"named\s+([A-Za-z0-9_\- ]+?)\s+about",
+        r"name\s+([A-Za-z0-9_\- ]+?)\s+about",
+        r"called\s+([A-Za-z0-9_\- ]+?)\s+about",
+        r"naam\s+([A-Za-z0-9_\- ]+?)\s+about",
+        r"named\s+([A-Za-z0-9_\- ]+?)\s+on",
+        r"name\s+([A-Za-z0-9_\- ]+?)\s+on",
+        r"called\s+([A-Za-z0-9_\- ]+?)\s+on",
+        r"naam\s+([A-Za-z0-9_\- ]+?)\s+on",
+        r"named\s+([A-Za-z0-9_\- ]+)",
+        r"name\s+([A-Za-z0-9_\- ]+)",
+        r"called\s+([A-Za-z0-9_\- ]+)",
+        r"naam\s+([A-Za-z0-9_\- ]+)",
+    ]
 
-    match = re.search(r"name\s+([A-Za-z0-9_\-]+)", text, re.IGNORECASE)
-    if match:
-        return match.group(1)
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
 
-    match = re.search(r"called\s+([A-Za-z0-9_\-]+)", text, re.IGNORECASE)
-    if match:
-        return match.group(1)
+        if match:
+            return clean_filename(match.group(1))
 
-    return default_name
+    return clean_filename(default_name)
+
+
+def clean_topic(topic: str):
+    topic = topic.strip()
+
+    topic = re.sub(
+        r"\b(in|on|at)\s+(desktop|documents|downloads)\b",
+        "",
+        topic,
+        flags=re.IGNORECASE
+    )
+
+    topic = re.sub(
+        r"\b\d+\s+(pages?|words?)\b",
+        "",
+        topic,
+        flags=re.IGNORECASE
+    )
+
+    topic = topic.strip(" .,-")
+
+    return topic or "Generated Document"
 
 
 def extract_topic(text):
-    match = re.search(r"about\s+(.+)", text, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
+    patterns = [
+        r"about\s+(.+)",
+        r"on\s+(.+)",
+        r"topic\s+(.+)",
+        r"regarding\s+(.+)"
+    ]
 
-    match = re.search(r"on\s+(.+)", text, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
 
-    return text.strip()
+        if match:
+            return clean_topic(match.group(1))
+
+    name = detect_word_name(text, "")
+
+    if name:
+        return clean_topic(name.replace("_", " "))
+
+    return clean_topic(text)
 
 
 def detect_document_type(text):
@@ -49,6 +106,15 @@ def detect_document_type(text):
     if "proposal" in text:
         return "proposal"
 
+    if "mcq" in text or "mcqs" in text:
+        return "mcqs"
+
+    if "examples" in text or "example" in text:
+        return "examples"
+
+    if "advantages" in text or "disadvantages" in text or "benefits" in text:
+        return "advantages and disadvantages"
+
     if "notes" in text or "study notes" in text:
         return "study notes"
 
@@ -65,28 +131,35 @@ def detect_document_type(text):
 
 
 def is_word_creation_command(user_command: str):
-    text = user_command.lower()
+    text = user_command.lower().strip()
+
+    create_words = [
+        "create",
+        "make",
+        "generate",
+        "build",
+        "banao",
+        "banani",
+        "banana"
+    ]
+
+    word_words = [
+        "word",
+        "docx",
+        "ms word",
+        "word file",
+        "word document",
+        "doc file",
+        "document file"
+    ]
 
     return (
-        ("create" in text or "make" in text or "generate" in text)
-        and (
-            "word" in text
-            or "docx" in text
-            or "ms word" in text
-            or "word file" in text
-            or "word document" in text
-        )
+        any(word in text for word in create_words)
+        and any(word in text for word in word_words)
     )
 
 
 def build_word_creation_plan(user_command: str):
-    """
-    This function only creates a plan.
-    It does not open Word.
-    It does not generate AI content.
-    It does not save files.
-    """
-
     name = detect_word_name(user_command)
     topic = extract_topic(user_command)
     document_type = detect_document_type(user_command)
@@ -102,11 +175,6 @@ def build_word_creation_plan(user_command: str):
 
 
 def create_word_document_from_command(user_command: str):
-    """
-    This function executes actual Word document creation.
-    It should be called by executor.py, not directly by intent_planner.py.
-    """
-
     from app.word_agent.word_live_writer import create_fast_then_live_ai_document
 
     name = detect_word_name(user_command)

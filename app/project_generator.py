@@ -88,6 +88,8 @@ def generate_blueprint_project(
             if ai_files:
                 files.update(ai_files)
 
+    theme = None
+
     if design_spec:
         theme = design_spec.get("theme")
 
