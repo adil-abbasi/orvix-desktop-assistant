@@ -1,0 +1,16 @@
+[33m04b9b461[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mrecovery[m[33m)[m HEAD@{0}: reset: moving to 04b9b461
+[33m848c5755[m HEAD@{1}: reset: moving to 848c5755
+[33m75440c17[m HEAD@{2}: reset: moving to 75440c17
+[33m7dd13a15[m[33m ([m[1;31morigin/recovery[m[33m)[m HEAD@{3}: commit: Migrate Gemini provider to google-genai SDK
+[33m266f2e69[m HEAD@{4}: commit: Add task router and document agent dispatcher
+[33m7dca43ce[m[33m ([m[1;33mtag: [m[1;33mv0.4-document-agent[m[33m)[m HEAD@{5}: commit: Add live Word document actions engine
+[33mdf01eeac[m HEAD@{6}: commit: Add active Word document continuation
+[33m75440c17[m HEAD@{7}: commit: Add Word document reader and AI analyzer
+[33mbf369e40[m HEAD@{8}: commit: Add project modification backend flow
+[33m960d70c2[m HEAD@{9}: commit: Add AI project modification apply flow
+[33m238ef31e[m HEAD@{10}: commit: Add AI cache and Gemini quota fallback
+[33m848c5755[m HEAD@{11}: commit: Add AI cache and quota fallback
+[33m04b9b461[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mrecovery[m[33m)[m HEAD@{12}: commit: Restore dynamic design spec theme and routing
+[33m0ea6cea5[m HEAD@{13}: commit: Restore Gemini provider and design spec generator
+[33m2bb8507b[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{14}: checkout: moving from main to recovery
+[33m2bb8507b[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{15}: clone: from https://github.com/adil-abbasi/orvix-desktop-assistant

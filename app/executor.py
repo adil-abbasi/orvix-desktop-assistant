@@ -800,6 +800,45 @@ def create_project_structure(project_name: str, location: str, folders: list, fi
 def execute_single_action(parsed_command):
     action = parsed_command.get("action")
 
+    if action == "create_ai_word_document":
+        from app.word_command_handler import create_word_document_from_command
+
+        result = create_word_document_from_command(
+            parsed_command.get("command", "")
+        )
+
+        return (
+            result.get("success", False),
+            result.get("message", "Word document task finished.")
+        )
+
+    if action == "document_action":
+        from app.word_agent.document_actions import execute_document_action
+
+        result = execute_document_action(
+            parsed_command.get("command", "")
+        )
+
+        return (
+            result.get("success", False),
+            result.get("message", "Document action finished.")
+        )
+
+    if action == "modify_current_project":
+        from app.intent_planner import handle_modify_current_project
+
+        result = handle_modify_current_project(
+            parsed_command.get("command", "")
+        )
+
+        if isinstance(result, dict):
+            return (
+                result.get("success", False),
+                result.get("message", "Project modification finished.")
+            )
+
+        return True, result
+
     if action == "run_project":
         return run_project(
             parsed_command.get("template"),

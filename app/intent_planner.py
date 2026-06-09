@@ -145,11 +145,19 @@ def plan_intent(user_command: str):
     text = clean_text(user_command)
     route = route_task(user_command)
     task_type = route["task_type"]
-    if task_type == "document":
-        return dispatch(
-            task_type,
-            user_command
-        )
+
+    location = detect_location(text)
+    open_in_vscode = wants_vscode(text)
+
+    # 1. Word document creation should return a plan only.
+    # It must not open Word here.
+    from app.word_command_handler import is_word_creation_command, build_word_creation_plan
+
+    if is_word_creation_command(user_command):
+        return build_word_creation_plan(user_command)
+
+    # 2. Existing document actions should also return an executable plan.
+    # Example: summarize current document, add section, references, etc.
     word_action_keywords = [
         "mcq",
         "mcqs",
@@ -167,22 +175,22 @@ def plan_intent(user_command: str):
         "study notes"
     ]
 
-    if any(keyword in text for keyword in word_action_keywords):
-        result = execute_document_action(user_command)
+    if task_type == "document" or any(keyword in text for keyword in word_action_keywords):
+        return {
+            "success": True,
+            "action": "document_action",
+            "command": user_command
+        }
 
-        if result.get("success"):
-            return f"✓ {result.get('message', 'Word document updated.')}"
-
-        return f"✗ {result.get('message', 'Word action failed.')}"
-    location = detect_location(text)
-    open_in_vscode = wants_vscode(text)
-    word_result = handle_word_command(user_command)
-
-    if word_result:
-        return word_result
+    # 3. Modify current project
     if is_modify_command(text):
-        return handle_modify_current_project(user_command)
+        return {
+            "success": True,
+            "action": "modify_current_project",
+            "command": user_command
+        }
 
+    # 4. AI project generation
     build_words = [
         "build",
         "make",

@@ -1,4 +1,4 @@
-from app.ai.gemini_provider import configure, ask_gemini
+from app.ai.gemini_provider import configure, ask_gemini, ask_gemini_stream
 from app.ai.ollama_provider import ask_ollama
 from app.ai.config.ai_config import AI_PROVIDER, GEMINI_API_KEY
 from app.ai_cache import get_cached_response, set_cached_response
@@ -58,4 +58,25 @@ def ask_ai(prompt: str, provider=None, use_cache=True):
         "success": False,
         "response": "",
         "error": f"Unknown provider: {provider}"
+    }
+
+
+def ask_ai_stream(prompt: str, provider=None):
+    """
+    Streaming AI response for live writing.
+    For now, streaming is supported only for Gemini.
+    """
+
+    provider = provider or AI_PROVIDER
+
+    if provider == "gemini":
+        yield from ask_gemini_stream(prompt)
+        return
+
+    # Ollama streaming can be added later.
+    # For now, return a clean error instead of crashing.
+    yield {
+        "success": False,
+        "text": "",
+        "error": f"Streaming is not supported for provider: {provider}"
     }
